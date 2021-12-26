@@ -63,26 +63,6 @@ namespace TurboEmu.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] BaltimoreCA {
-            get {
-                object obj = ResourceManager.GetObject("BaltimoreCA", resourceCulture);
-                return ((byte[])(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Byte[].
-        /// </summary>
-        internal static byte[] CloudflareSubCA {
-            get {
-                object obj = ResourceManager.GetObject("CloudflareSubCA", resourceCulture);
-                return ((byte[])(obj));
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized resource of type System.Byte[].
-        /// </summary>
         internal static byte[] TurboEmu {
             get {
                 object obj = ResourceManager.GetObject("TurboEmu", resourceCulture);
@@ -97,6 +77,16 @@ namespace TurboEmu.Properties {
             get {
                 object obj = ResourceManager.GetObject("turboemu_logo", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Byte[].
+        /// </summary>
+        internal static byte[] TurboEmuCA {
+            get {
+                object obj = ResourceManager.GetObject("TurboEmuCA", resourceCulture);
+                return ((byte[])(obj));
             }
         }
     }

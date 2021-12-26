@@ -1,0 +1,6 @@
+.vs/TurboEmu/v16/.suo
+packages/*
+TurboEmu/bin/*
+TurboEmu/obj/*
+uHttpSharp/uhttpsharp/bin/*
+uHttpSharp/uhttpsharp/obj/*

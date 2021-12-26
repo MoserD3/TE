@@ -118,14 +118,11 @@
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <assembly alias="System.Windows.Forms" name="System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
-  <data name="BaltimoreCA" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\resources\baltimoreca.crt;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="CloudflareSubCA" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\resources\cloudflaresubca.crt;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
   <data name="TurboEmu" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\TurboEmu.pfx;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="TurboEmuCA" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\TurboEmuCA.crt;System.Byte[], mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </data>
   <data name="turboemu_logo" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\turboemu_logo.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>

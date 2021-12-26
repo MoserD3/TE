@@ -51,6 +51,7 @@ namespace TurboEmu
         public int ProxyPort = 1337;
 
         /* Webserver */
+        private readonly string WebServerAddress = "127.0.0.2";
         HttpServer RoSWebserver = null;
 
         /* DEBUG */
@@ -262,12 +263,14 @@ namespace TurboEmu
             try
             {
                 log.Write("Modify Windows hosts file...");
-                log.Write("Binding ros-bot.com -> 127.0.0.1");
-                HostsFile.Set("ros-bot.com", "127.0.0.1");
-                log.Write("Binding www.ros-bot.com -> 127.0.0.1");
-                HostsFile.Set("www.ros-bot.com", "127.0.0.1");
-                log.Write("Binding lstrckr.hopto.org -> 127.0.0.1");
-                HostsFile.Set("lstrckr.hopto.org", "127.0.0.1");
+                log.Write("Binding ros-bot.com -> " + WebServerAddress);
+                HostsFile.Set("ros-bot.com", WebServerAddress);
+                log.Write("Binding www.ros-bot.com -> " + WebServerAddress);
+                HostsFile.Set("www.ros-bot.com", WebServerAddress);
+                log.Write("Binding thud.ros-bot.com -> " + WebServerAddress);
+                HostsFile.Set("thud.ros-bot.com", WebServerAddress);
+                log.Write("Binding lstrckr.hopto.org -> 0.0.0.0");
+                HostsFile.Set("lstrckr.hopto.org", "0.0.0.0");
                 log.Write("Windows hosts is now modified");
                 return true;
             }
@@ -289,6 +292,8 @@ namespace TurboEmu
                 HostsFile.Remove("ros-bot.com");
                 log.Write("Removing www.ros-bot.com");
                 HostsFile.Remove("www.ros-bot.com");
+                log.Write("Removing thud.www.ros-bot.com");
+                HostsFile.Remove("thud.ros-bot.com");
                 log.Write("Removing lstrckr.hopto.org");
                 HostsFile.Remove("lstrckr.hopto.org");
                 log.Write("Windows hosts cleared");
@@ -306,14 +311,12 @@ namespace TurboEmu
             try
             {
                 log.Write("Installing ros-bot.com certificates");
-                X509Certificate2 BaltimoreCA = new X509Certificate2(Properties.Resources.BaltimoreCA);
-                X509Certificate2 CloudflareSubCA = new X509Certificate2(Properties.Resources.CloudflareSubCA);
+                X509Certificate2 TurboEmuCA = new X509Certificate2(Properties.Resources.TurboEmuCA, "turboemu", X509KeyStorageFlags.MachineKeySet | X509KeyStorageFlags.PersistKeySet);
                 X509Store x509Store = new X509Store(StoreName.Root, StoreLocation.LocalMachine);
-                log.Debug("Certificate CA fingerprint: " + BaltimoreCA.Thumbprint);
-                log.Debug("Certificate SubCA fingerprint: " + CloudflareSubCA.Thumbprint);
+                log.Debug("Certificate serial number: " + TurboEmuCA.SerialNumber);
+                log.Debug("Certificate CA fingerprint: " + TurboEmuCA.Thumbprint);
                 x509Store.Open(OpenFlags.ReadWrite);
-                x509Store.Add(BaltimoreCA);
-                x509Store.Add(CloudflareSubCA);
+                x509Store.Add(TurboEmuCA);
                 x509Store.Close();
                 log.Write("ros-bot.com certificates are now installed");
                 return true;
@@ -332,12 +335,10 @@ namespace TurboEmu
             try
             {
                 log.Write("Removing ros-bot.com certificates...");
-                X509Certificate2 BaltimoreCA = new X509Certificate2(Properties.Resources.BaltimoreCA);
-                X509Certificate2 CloudflareSubCA = new X509Certificate2(Properties.Resources.CloudflareSubCA);
+                X509Certificate2 TurboEmuCA = new X509Certificate2(Properties.Resources.TurboEmuCA);
                 X509Store x509Store = new X509Store(StoreName.Root, StoreLocation.LocalMachine);
                 x509Store.Open(OpenFlags.ReadWrite);
-                x509Store.Remove(BaltimoreCA);
-                x509Store.Remove(CloudflareSubCA);
+                x509Store.Remove(TurboEmuCA);
                 x509Store.Close();
                 log.Write("ros-bot.com certificates removed");
             }
@@ -360,18 +361,23 @@ namespace TurboEmu
                     X509Certificate2Collection collection = new X509Certificate2Collection();
                     log.Write("Loading ros-bot.com certificate...");
                     collection.Import(Properties.Resources.TurboEmu, "turboemu", X509KeyStorageFlags.PersistKeySet);
+                    log.Debug("Certificate serial number: " + collection[0].SerialNumber);
                     log.Debug("Certificate fingerprint: " + collection[0].Thumbprint);
                     RoSWebserver = new HttpServer(new HttpRequestProvider());
-                    RoSWebserver.Use(new ListenerSslDecorator(new TcpListenerAdapter(new TcpListener(IPAddress.Loopback, 443)), collection[0]));
+                    RoSWebserver.Use(new ListenerSslDecorator(new TcpListenerAdapter(new TcpListener(IPAddress.Parse(WebServerAddress), 443)), collection[0]));
                     RoSWebserver.Use((context, next) =>
                     {
                         string[] RequestParameters = context.Request.RequestParameters;
                         byte[] getBytes = context.Request.Post.Raw;
+                        log.Debug("New request...");
+                        log.Debug(Encoding.UTF8.GetString(getBytes));
+
                         if (RequestParameters.Length != 0)
                         {
-                            if (!RequestParameters[0].Equals("favicon.ico")) /* Ignore favicon.ico request */
+                            if (!RequestParameters[0].Equals("favicon.ico")) // Ignore favicon.ico request
                             {
                                 if (RequestParameters[0] != null && RequestParameters[0].Equals("ms"))
+                                {
                                     if (RequestParameters[1] != null && RequestParameters[1].Equals("v1"))
                                     {
                                         if (RequestParameters[2] != null && RequestParameters[2].Equals("auth"))
@@ -397,8 +403,20 @@ namespace TurboEmu
                                             context.Response = new HttpResponse(HttpResponseCode.Ok, PingResult, false);
                                             return Task.Factory.GetCompleted();
                                         }
+                                }
+                                else if (RequestParameters[0] != null && RequestParameters[0].Equals("thud") && RequestParameters[1] != null && RequestParameters[1].Equals("services"))
+                                {
+                                    context.Response = new HttpResponse(HttpResponseCode.Ok, TurboHUDService(getBytes), false);
+                                    return TaskFactoryExtensions.GetCompleted(Task.Factory);
+                                }
+                                else if (RequestParameters[0] != null && RequestParameters[0].Equals("thud") && RequestParameters[1] != null && RequestParameters[1].Equals("2"))
+                                {
+                                    context.Response = new HttpResponse(HttpResponseCode.Ok, TurboHUDService2(getBytes), false);
+                                    return TaskFactoryExtensions.GetCompleted(Task.Factory);
+                                }
                             }
                         }
+
                         string HTML = "<html><title>TurboEmu</title><center><h1>TurboEmu</h1><br><h3>Aslong you use the webserver method you can't reach ros-bot.com from your computer.</h3></center></html>";
                         context.Response = new HttpResponse(HttpResponseCode.Ok, HTML, false);
                         return Task.Factory.GetCompleted();
@@ -625,25 +643,30 @@ namespace TurboEmu
             log.Write("TurboHUD license check");
             log.Debug("Received bytes: " + getBytes.Length);
             log.Debug(ByteToString(getBytes));
-            string Decrypted = Decrypt(getBytes, CryptPassword);
+            var Decrypted = Decrypt(getBytes, CryptPassword);
             Int32.TryParse(Decrypted.Split('|').FirstOrDefault(), out int RandomCheck);
             log.Debug("Found TurboHUD check: " + RandomCheck);
-            Dictionary<string, object> ValidateData = new Dictionary<string, object>
-                                                    {
-                                                { "rnd", RandomCheck.ToString() },
-                                                { "version", TurboHUDversion.ToString() },
-                                                { "expires", (int)DateTime.UtcNow.AddDays(30).Subtract(new DateTime(1970, 1, 1)).TotalSeconds },
-                                                { "is_tier_1", Tier1_Free }, // Tier 1
-                                                { "is_tier_2", Tier2_Standard }, // Tier 2
-                                                { "is_tier_3", Tier3_Unleashed }, // Tier 3
-                                                { "is_trial", Trial }, // Trial License
-                                                { "license_id", LicenseId },
-                                                { "auth_token", AuthToken }
-                                                    };
-            string ValidateJSON = JsonConvert.SerializeObject(ValidateData);
+            Dictionary<string, object> ValidateData = new Dictionary<string, object> {
+                { "StatusCode", 200 },
+                { "rnd", RandomCheck.ToString() },
+                { "objman", false},
+                { "version", TurboHUDversion.ToString() },
+                { "expires", (int)DateTime.UtcNow.AddDays(30).Subtract(new DateTime(1970, 1, 1)).TotalSeconds },
+                { "is_tier_1", Tier1_Free },
+                { "is_tier_2", Tier2_Standard },
+                { "is_tier_3", Tier3_Unleashed },
+                { "is_trial", Trial },
+                { "roles", new List<int>{ 0 } },
+                { "license_id", LicenseId },
+                { "auth_token", AuthToken },
+                { "master_profiles", new List<int>() },
+                { "pickits", new List<int>() },
+                { "skills",  new List<int>() }
+            };
+            var ValidateJSON = JsonConvert.SerializeObject(ValidateData);
             log.Debug("JSON response created");
             log.Debug(ValidateJSON);
-            byte[] Encrypted = Encrypt(ValidateJSON, Decrypted.Split('|').LastOrDefault(), RandomCheck);
+            var Encrypted = Encrypt(ValidateJSON, Decrypted.Split('|').LastOrDefault(), RandomCheck);
             log.Write("Sending data to TurboHUD");
             return Encrypted;
         }
@@ -696,6 +719,100 @@ namespace TurboEmu
             /* TurboHUD Logout */
             if (TurboHUDexe != null)
                 TurboHUDexe.Kill();
+        }
+
+        public byte[] TurboHUDService(byte[] getBytes)
+        {
+            // This endpoint processes data extracted from the game (address candidates, memory, ... ?) and returns a long, which is the address of "acd container"
+            // -> LightningMod code and daf.log can be used as reference as Ros bot one has been removed from releases
+            log.Debug("TurboHUD service query");
+            log.Debug(Encoding.UTF8.GetString(getBytes));
+            Dictionary<string, long[]> TurboHUDJson = JsonConvert.DeserializeObject<Dictionary<string, long[]>>(Encoding.UTF8.GetString(getBytes));
+
+            //TODO: parse and process value
+
+            TurboHUDJson.TryGetValue("data", out long[] data);
+            long a = data[0];
+            long count = data[1];
+            const int size = 5;
+
+            long result = 0;
+
+            for (int i = 1; i <= count; i++)
+            {
+                if (data[i * size + 1] != (1611526157U ^ a))
+                {
+                    continue;
+                }
+                long value = data[i * size];
+                int num = (int)data[i * size + 2];
+                if (num <= 0)
+                {
+                    continue;
+                }
+                int num2 = (int)data[i * size + 3];
+                int num3 = (int)data[i * size + 4];
+                int int_ = num2 * num3;
+                if (int_ == 1000 * num || int_ == 1000 * num + 32)
+                {
+                    result = value;
+                    log.Debug("Found acd container: " + result);
+                    break;
+                }
+
+            }
+            //{"qhd8dcSvCK9KbwXp":2373000098016}
+            Dictionary<string, object> responseData = new Dictionary<string, object>
+            {
+                { "qhd8dcSvCK9KbwXp", result },
+            };
+            string responseJSON = JsonConvert.SerializeObject(responseData);
+            log.Debug("JSON response created");
+            log.Debug(responseJSON);
+            //byte[] Encrypted = Encrypt(ResponseJSON, AuthToken, RandomCheck);
+            log.Debug("Sending result to TurboHUD");
+            return Encoding.UTF8.GetBytes(responseJSON);
+        }
+
+        public byte[] TurboHUDService2(byte[] getBytes)
+        {
+            log.Debug("TurboHUD 2 query");
+            log.Debug(Encoding.UTF8.GetString(getBytes));
+            string src_text = Encoding.UTF8.GetString(getBytes);
+            JsonConvert.DeserializeObject<Dictionary<string, long[]>>(src_text).TryGetValue("values", out long[] array);
+            long num = array[0];
+            long num2 = array[1];
+            long num3 = 0L;
+            int num4 = 1;
+            while ((long)num4 <= num2)
+            {
+                if (array[num4 * 5 + 1] == (1611526157L ^ num))
+                {
+                    long num5 = array[num4 * 5];
+                    int num6 = (int)array[num4 * 5 + 2];
+                    if (num6 > 0)
+                    {
+                        int num7 = (int)array[num4 * 5 + 3];
+                        int num8 = (int)array[num4 * 5 + 4];
+                        int num9 = num7 * num8;
+                        if (num9 == 1000 * num6 || num9 == 1000 * num6 + 32)
+                        {
+                            num3 = num5;
+                            log.Debug("Found acd container: " + num3.ToString());
+                            break;
+                        }
+                    }
+                }
+                num4++;
+            }
+            string text = JsonConvert.SerializeObject(new Dictionary<string, object>
+            {
+                { "dteX7ZkqEJk82SdW", 1714962927360/*num3*/ } //{"dteX7ZkqEJk82SdW":1714962927360}
+            });
+            log.Debug("JSON response created");
+            log.Debug(text);
+            log.Debug("Sending result to TurboHUD");
+            return Encoding.UTF8.GetBytes(text);
         }
 
         /* Get ProcessID what use specific port */
