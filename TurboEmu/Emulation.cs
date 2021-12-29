@@ -753,7 +753,7 @@ namespace TurboEmu
                 int num2 = (int)data[i * size + 3];
                 int num3 = (int)data[i * size + 4];
                 int int_ = num2 * num3;
-                if (int_ == 1000 * num || int_ == 1000 * num + 32)
+                if (int_ == 1016 * num || int_ == 1016 * num + 32)
                 {
                     result = value;
                     log.Debug("Found acd container: " + result);
